@@ -101,6 +101,9 @@ suite("SSEWireFormatTests") { runSSEWireFormatTests() }
 suite("ApfelServerLifecycleTests") { runApfelServerLifecycleTests() }
 suite("PropertyTests") { runPropertyTests() }
 suite("ApfelClientRobustnessTests") { runApfelClientRobustnessTests() }
+suite("ErrorMessageSnapshotTests") { runErrorMessageSnapshotTests() }
+suite("EncodingSafetyTests") { runEncodingSafetyTests() }
+suite("PortScannerPerformanceTests") { runPortScannerPerformanceTests() }
 
 // MARK: - Summary
 
