@@ -17,18 +17,18 @@ public actor ApfelServer {
     // MARK: - Public API
 
     /// Port range to probe and, if nothing responds, spawn into.
-    public let portRange: ClosedRange<Int>
+    public nonisolated let portRange: ClosedRange<Int>
 
     /// How long to wait for `/health` to answer HTTP 200 after spawning.
-    public let healthTimeout: Duration
+    public nonisolated let healthTimeout: Duration
 
     /// Extra arguments appended after `--serve --port <N>`. Defaults to
     /// `["--cors", "--permissive"]` to match the ecosystem tools.
-    public let arguments: [String]
+    public nonisolated let arguments: [String]
 
     /// The host to bind to. `apfel --serve` always binds `127.0.0.1`; the
     /// host field is used only for `/health` probing and `ApfelClient` wiring.
-    public let host: String
+    public nonisolated let host: String
 
     /// The port the server is running (or connected) on. `nil` before `start()`.
     public var port: Int? { _port }

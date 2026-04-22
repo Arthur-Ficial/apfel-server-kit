@@ -79,12 +79,19 @@ suite("PackageSmokeTests") {
     }
 }
 suite("SSEEventTests") { runSSEEventTests() }
+suite("SSEEventExtraTests") { runSSEEventExtraTests() }
 suite("SSEParserTests") { runSSEParserTests() }
+suite("SSEParserExtraTests") { runSSEParserExtraTests() }
 suite("ApfelBinaryFinderTests") { runApfelBinaryFinderTests() }
+suite("ApfelBinaryFinderExtraTests") { runApfelBinaryFinderExtraTests() }
 suite("PortScannerTests") { runPortScannerTests() }
+suite("PortScannerExtraTests") { runPortScannerExtraTests() }
 suite("ApfelServerTests") { runApfelServerTests() }
+suite("ApfelServerExtraTests") { runApfelServerExtraTests() }
 suite("ChatRequestTests") { runChatRequestTests() }
+suite("ChatRequestExtraTests") { runChatRequestExtraTests() }
 suite("ApfelClientTests") { runApfelClientTests() }
+suite("ApfelClientExtraTests") { runApfelClientExtraTests() }
 
 // MARK: - Summary
 
