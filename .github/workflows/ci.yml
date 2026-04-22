@@ -90,10 +90,20 @@ jobs:
 
       - name: Diagnose API breakage
         run: |
-          # Skip until we have a published tag to diff against.
-          baseline=$(git tag --list --sort=-version:refname | head -1)
+          # Pick the newest tag that is NOT the current commit as the baseline.
+          # During the very first release, the only tag points at HEAD and
+          # there is nothing meaningful to diff against.
+          head_sha=$(git rev-parse HEAD)
+          baseline=""
+          for tag in $(git tag --list --sort=-version:refname); do
+            tag_sha=$(git rev-parse "$tag^{commit}")
+            if [[ "$tag_sha" != "$head_sha" ]]; then
+              baseline="$tag"
+              break
+            fi
+          done
           if [[ -z "$baseline" ]]; then
-            echo "No tags yet - skipping API-breakage check."
+            echo "No prior tag distinct from HEAD - skipping API-breakage check (initial release)."
             exit 0
           fi
           echo "Checking API breakage vs $baseline"
