@@ -80,6 +80,7 @@ suite("PackageSmokeTests") {
 }
 suite("SSEEventTests") { runSSEEventTests() }
 suite("SSEParserTests") { runSSEParserTests() }
+suite("ApfelBinaryFinderTests") { runApfelBinaryFinderTests() }
 
 // MARK: - Summary
 
