@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: macos-14
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select latest Xcode
+        run: |
+          latest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [[ -n "$latest" ]]; then
+            echo "Selecting $latest"
+            sudo xcode-select -s "$latest/Contents/Developer"
+          fi
+          echo "Swift: $(swift --version 2>&1 | head -1)"
+
+      - name: Build
+        run: swift build
+
+      - name: Test
+        run: swift run apfel-server-kit-tests
+
+  strict-concurrency:
+    runs-on: macos-14
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Select latest Xcode
+        run: |
+          latest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [[ -n "$latest" ]]; then
+            sudo xcode-select -s "$latest/Contents/Developer"
+          fi
+
+      - name: Strict concurrency build
+        run: swift build -Xswiftc -strict-concurrency=complete
+
+  docs:
+    runs-on: macos-14
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Select latest Xcode
+        run: |
+          latest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [[ -n "$latest" ]]; then
+            sudo xcode-select -s "$latest/Contents/Developer"
+          fi
+
+      - name: Build DocC
+        run: |
+          mkdir -p "$RUNNER_TEMP/docs"
+          swift package \
+            --allow-writing-to-directory "$RUNNER_TEMP/docs" \
+            generate-documentation \
+            --target ApfelServerKit \
+            --disable-indexing \
+            --warnings-as-errors \
+            --output-path "$RUNNER_TEMP/docs"
+
+  api-breakage:
+    runs-on: macos-14
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select latest Xcode
+        run: |
+          latest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [[ -n "$latest" ]]; then
+            sudo xcode-select -s "$latest/Contents/Developer"
+          fi
+
+      - name: Diagnose API breakage
+        run: |
+          # Skip until we have a published tag to diff against.
+          baseline=$(git tag --list --sort=-version:refname | head -1)
+          if [[ -z "$baseline" ]]; then
+            echo "No tags yet - skipping API-breakage check."
+            exit 0
+          fi
+          echo "Checking API breakage vs $baseline"
+          swift package diagnose-api-breaking-changes "$baseline" --products ApfelServerKit
