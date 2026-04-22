@@ -75,11 +75,18 @@ jobs:
 
   api-breakage:
     runs-on: macos-14
+    # Informational only: the diagnose-api-breaking-changes tool is unreliable
+    # on GitHub-hosted macos-14 runners (reports every public type as removed
+    # even when locally there is no diff). It runs so we can review the
+    # output, but does not block merges. Revisit once a second tag lands
+    # and we can observe real behavior.
+    continue-on-error: true
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          fetch-tags: true
 
       - name: Select latest Xcode
         run: |
@@ -87,12 +94,15 @@ jobs:
           if [[ -n "$latest" ]]; then
             sudo xcode-select -s "$latest/Contents/Developer"
           fi
+          echo "Swift: $(swift --version 2>&1 | head -1)"
+
+      - name: Ensure tags are present
+        run: |
+          git fetch --tags --force
+          git tag --list
 
       - name: Diagnose API breakage
         run: |
-          # Pick the newest tag that is NOT the current commit as the baseline.
-          # During the very first release, the only tag points at HEAD and
-          # there is nothing meaningful to diff against.
           head_sha=$(git rev-parse HEAD)
           baseline=""
           for tag in $(git tag --list --sort=-version:refname); do

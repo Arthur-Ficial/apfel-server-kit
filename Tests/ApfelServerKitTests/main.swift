@@ -92,6 +92,15 @@ suite("ChatRequestTests") { runChatRequestTests() }
 suite("ChatRequestExtraTests") { runChatRequestExtraTests() }
 suite("ApfelClientTests") { runApfelClientTests() }
 suite("ApfelClientExtraTests") { runApfelClientExtraTests() }
+suite("PublicAPIStabilityTests") { runPublicAPIStabilityTests() }
+suite("ErrorTypeDirectTests") { runErrorTypeDirectTests() }
+suite("ConcurrencyStressTests") { runConcurrencyStressTests() }
+suite("LargePayloadTests") { runLargePayloadTests() }
+suite("IntegrationRoundTripTests") { runIntegrationRoundTripTests() }
+suite("SSEWireFormatTests") { runSSEWireFormatTests() }
+suite("ApfelServerLifecycleTests") { runApfelServerLifecycleTests() }
+suite("PropertyTests") { runPropertyTests() }
+suite("ApfelClientRobustnessTests") { runApfelClientRobustnessTests() }
 
 // MARK: - Summary
 
