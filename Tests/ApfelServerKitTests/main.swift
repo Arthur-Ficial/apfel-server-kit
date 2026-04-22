@@ -71,13 +71,15 @@ func suite(_ name: String, _ block: () -> Void) {
     block()
 }
 
-// MARK: - Placeholder smoke test so the initial commit builds and runs
+// MARK: - Run suites
 
 suite("PackageSmokeTests") {
     test("version is set") {
         try assertEqual(ApfelServerKit.version, "1.0.0")
     }
 }
+suite("SSEEventTests") { runSSEEventTests() }
+suite("SSEParserTests") { runSSEParserTests() }
 
 // MARK: - Summary
 
