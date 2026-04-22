@@ -83,6 +83,8 @@ suite("SSEParserTests") { runSSEParserTests() }
 suite("ApfelBinaryFinderTests") { runApfelBinaryFinderTests() }
 suite("PortScannerTests") { runPortScannerTests() }
 suite("ApfelServerTests") { runApfelServerTests() }
+suite("ChatRequestTests") { runChatRequestTests() }
+suite("ApfelClientTests") { runApfelClientTests() }
 
 // MARK: - Summary
 
