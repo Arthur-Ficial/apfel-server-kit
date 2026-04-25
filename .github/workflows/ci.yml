@@ -74,13 +74,11 @@ jobs:
             --output-path "$RUNNER_TEMP/docs"
 
   api-breakage:
-    runs-on: macos-14
-    # Informational only: the diagnose-api-breaking-changes tool is unreliable
-    # on GitHub-hosted macos-14 runners (reports every public type as removed
-    # even when locally there is no diff). It runs so we can review the
-    # output, but does not block merges. Revisit once a second tag lands
-    # and we can observe real behavior.
-    continue-on-error: true
+    # macos-14 runner has a Swift toolchain bug where diagnose-api-breaking-changes
+    # reports every public type as removed even with zero real diff. macos-15 runs
+    # the same check correctly. If GitHub deprecates macos-15 before Apple fixes
+    # the macos-14 toolchain, switch to whichever current image works.
+    runs-on: macos-15
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
