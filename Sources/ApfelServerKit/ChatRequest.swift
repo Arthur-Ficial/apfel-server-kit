@@ -23,16 +23,27 @@ public struct ChatRequest: Sendable, Equatable, Codable {
     public var messages: [ChatMessage]
     public var stream: Bool
     public var temperature: Double?
+    /// Cap on output tokens. When `nil`, the server uses its own default —
+    /// which on apfel is "stream until 4096-token context overflow", so always
+    /// set this for short, bounded replies (e.g. one-line decisions).
+    public var maxTokens: Int?
 
     public init(
         model: String = "apfel",
         messages: [ChatMessage],
         stream: Bool = true,
-        temperature: Double? = nil
+        temperature: Double? = nil,
+        maxTokens: Int? = nil
     ) {
         self.model = model
         self.messages = messages
         self.stream = stream
         self.temperature = temperature
+        self.maxTokens = maxTokens
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case model, messages, stream, temperature
+        case maxTokens = "max_tokens"
     }
 }
