@@ -75,7 +75,7 @@ func suite(_ name: String, _ block: () -> Void) {
 
 suite("PackageSmokeTests") {
     test("version is set") {
-        try assertEqual(ApfelServerKit.version, "1.0.0")
+        try assertEqual(ApfelServerKit.version, "1.1.0")
     }
 }
 suite("SSEEventTests") { runSSEEventTests() }

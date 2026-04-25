@@ -4,5 +4,5 @@
 /// anchor and carries the package-level version string.
 public enum ApfelServerKit {
     /// Package semantic version. Bump in lockstep with tagged releases.
-    public static let version = "1.0.0"
+    public static let version = "1.1.0"
 }
