@@ -44,6 +44,32 @@ public struct ApfelClient: Sendable {
         return chatCompletions(request)
     }
 
+    /// Send a chat request and return the full assistant reply as one string.
+    /// Use this when you don't need incremental tokens — it's simpler than the
+    /// streaming variant and avoids the SSE parsing path entirely. Forces
+    /// `stream = false` regardless of what the caller set on the request.
+    public func completeOnce(_ request: ChatRequest) async throws -> String {
+        guard let url = URL(string: "http://\(host):\(port)/v1/chat/completions") else {
+            throw ApfelClientError.invalidURL
+        }
+        var req = request
+        req.stream = false
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = try JSONEncoder().encode(req)
+        let (data, response) = try await URLSession.shared.data(for: urlRequest)
+        if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+            throw ApfelClientError.httpStatus(http.statusCode)
+        }
+        struct Response: Decodable {
+            struct Choice: Decodable { let message: ChatMessage }
+            let choices: [Choice]
+        }
+        let parsed = try JSONDecoder().decode(Response.self, from: data)
+        return parsed.choices.first?.message.content ?? ""
+    }
+
     /// Send a full chat request and stream the deltas back.
     public func chatCompletions(
         _ request: ChatRequest

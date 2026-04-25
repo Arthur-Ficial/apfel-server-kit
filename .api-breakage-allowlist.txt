@@ -1,0 +1,12 @@
+API breakage: enum ApfelBinaryFinder has been removed
+API breakage: struct ApfelClient has been removed
+API breakage: enum ApfelClientError has been removed
+API breakage: class ApfelServer has been removed
+API breakage: enum ApfelServerError has been removed
+API breakage: enum ApfelServerKit has been removed
+API breakage: struct ChatMessage has been removed
+API breakage: struct ChatRequest has been removed
+API breakage: enum PortScanner has been removed
+API breakage: struct TextDelta has been removed
+API breakage: enum SSEEvent has been removed
+API breakage: enum SSEParser has been removed

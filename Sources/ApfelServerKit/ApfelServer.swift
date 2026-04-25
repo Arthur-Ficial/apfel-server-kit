@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 /// Manages the lifecycle of a local `apfel --serve` process.
 ///
@@ -63,7 +64,13 @@ public actor ApfelServer {
 
     /// Connect to an existing apfel server in the configured range, or spawn
     /// a new one. Returns the port in use.
+    ///
+    /// Idempotent: a second `start()` call without an intervening `stop()`
+    /// returns the cached port immediately — no re-probe, no re-spawn, no
+    /// extra subprocess.
     public func start() async throws -> Int {
+        if let cached = _port { return cached }
+
         if let existing = await probeExisting() {
             _port = existing
             return existing
@@ -92,9 +99,9 @@ public actor ApfelServer {
         _port = free
 
         do {
-            try await pollHealth(port: free)
+            try await pollHealth(port: free, process: process)
         } catch {
-            process.terminate()
+            terminateAndReap(process)
             _process = nil
             _port = nil
             throw error
@@ -105,12 +112,37 @@ public actor ApfelServer {
 
     /// Terminate the managed subprocess, if any. No-op when attached to an
     /// existing server or when `start()` was never called.
+    ///
+    /// Escalates from SIGTERM to SIGKILL after a short grace period so a
+    /// wedged apfel that ignores SIGTERM still releases its port instead of
+    /// becoming a zombie that blocks the next `start()`.
     public func stop() {
-        if let process = _process, process.isRunning {
-            process.terminate()
+        if let process = _process {
+            terminateAndReap(process)
         }
         _process = nil
         _port = nil
+    }
+
+    /// Send SIGTERM, wait briefly for graceful shutdown, then SIGKILL if the
+    /// process is still alive. Synchronously reaps in either case so the kernel
+    /// does not keep a zombie around.
+    ///
+    /// The wait loop uses `usleep` (not `Task.sleep`) so this stays callable
+    /// from the actor's existing non-async `stop()` without changing the public
+    /// signature. Worst-case actor stall is ~`gracePeriod`; happy-path apfel
+    /// honors SIGTERM in well under 50ms.
+    private func terminateAndReap(_ process: Process, gracePeriod: TimeInterval = 0.5) {
+        guard process.isRunning else { return }
+        process.terminate()
+        let deadline = Date().addingTimeInterval(gracePeriod)
+        while process.isRunning && Date() < deadline {
+            usleep(20_000) // 20ms
+        }
+        if process.isRunning {
+            kill(process.processIdentifier, SIGKILL)
+            process.waitUntilExit()
+        }
     }
 
     // MARK: - Helpers
@@ -122,11 +154,20 @@ public actor ApfelServer {
         return nil
     }
 
-    private func pollHealth(port: Int) async throws {
+    private func pollHealth(port: Int, process: Process) async throws {
         let pollInterval: Duration = .milliseconds(200)
         let deadline = ContinuousClock.now.advanced(by: healthTimeout)
         while ContinuousClock.now < deadline {
             if await isHealthy(port: port) { return }
+            // Fail fast if the spawned process died — no point polling for
+            // /health on a port whose owner exited. Without this check,
+            // start() would wait the entire healthTimeout for a corpse.
+            if !process.isRunning {
+                throw ApfelServerError.healthCheckTimeout(
+                    port: port,
+                    seconds: durationToSeconds(healthTimeout)
+                )
+            }
             try? await Task.sleep(for: pollInterval)
         }
         throw ApfelServerError.healthCheckTimeout(

@@ -41,10 +41,54 @@ func runChatRequestTests() {
                 ChatMessage(role: "user", content: "hi")
             ],
             stream: false,
-            temperature: 0.2
+            temperature: 0.2,
+            maxTokens: 64
         )
         let data = try JSONEncoder().encode(original)
         let back = try JSONDecoder().decode(ChatRequest.self, from: data)
         try assertEqual(original, back)
+    }
+
+    test("ChatRequest JSON omits nil maxTokens") {
+        let req = ChatRequest(messages: [ChatMessage(role: "user", content: "hi")])
+        let data = try JSONEncoder().encode(req)
+        let str = String(data: data, encoding: .utf8) ?? ""
+        try assertFalse(str.contains("max_tokens"))
+    }
+
+    test("ChatRequest JSON encodes maxTokens as snake_case max_tokens") {
+        let req = ChatRequest(
+            messages: [ChatMessage(role: "user", content: "hi")],
+            maxTokens: 64
+        )
+        let data = try JSONEncoder().encode(req)
+        let str = String(data: data, encoding: .utf8) ?? ""
+        try assertTrue(str.contains("\"max_tokens\":64"))
+        try assertFalse(str.contains("maxTokens"))
+    }
+
+    test("ChatRequest decodes max_tokens from server JSON") {
+        let json = """
+        {"model":"apfel","messages":[{"role":"user","content":"hi"}],"stream":true,"max_tokens":128}
+        """.data(using: .utf8)!
+        let req = try JSONDecoder().decode(ChatRequest.self, from: json)
+        try assertEqual(req.maxTokens, 128)
+    }
+
+    test("ChatRequest preserves v1.0.0 init(model:messages:stream:temperature:) overload") {
+        // The overload exists explicitly so swift package diagnose-api-breaking-changes
+        // sees the v1.0.0 symbol unchanged. Fully-qualified call (no defaults) forces
+        // the 4-arg overload, not the 5-arg one.
+        let req = ChatRequest(
+            model: "apfel",
+            messages: [ChatMessage(role: "user", content: "hi")],
+            stream: false,
+            temperature: 0.5
+        )
+        try assertEqual(req.model, "apfel")
+        try assertEqual(req.messages.count, 1)
+        try assertFalse(req.stream)
+        try assertEqual(req.temperature, 0.5)
+        try assertNil(req.maxTokens)
     }
 }

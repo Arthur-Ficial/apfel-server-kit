@@ -23,16 +23,48 @@ public struct ChatRequest: Sendable, Equatable, Codable {
     public var messages: [ChatMessage]
     public var stream: Bool
     public var temperature: Double?
+    /// Cap on output tokens. When `nil`, the server uses its own default —
+    /// which on apfel is "stream until 4096-token context overflow", so always
+    /// set this for short, bounded replies (e.g. one-line decisions).
+    public var maxTokens: Int?
 
+    public init(
+        model: String = "apfel",
+        messages: [ChatMessage],
+        stream: Bool = true,
+        temperature: Double? = nil,
+        maxTokens: Int? = nil
+    ) {
+        self.model = model
+        self.messages = messages
+        self.stream = stream
+        self.temperature = temperature
+        self.maxTokens = maxTokens
+    }
+
+    // Preserves the v1.0.0 initializer symbol — including its default
+    // arguments — so swift package diagnose-api-breaking-changes does not
+    // flag the addition of `maxTokens` as either a symbol removal or a
+    // default-argument removal. Swift overload resolution prefers this
+    // 4-arg form when no `maxTokens:` label is present, falling through
+    // to the 5-arg init only when the caller writes `maxTokens:`.
     public init(
         model: String = "apfel",
         messages: [ChatMessage],
         stream: Bool = true,
         temperature: Double? = nil
     ) {
-        self.model = model
-        self.messages = messages
-        self.stream = stream
-        self.temperature = temperature
+        self.init(
+            model: model,
+            messages: messages,
+            stream: stream,
+            temperature: temperature,
+            maxTokens: nil
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case model, messages, stream, temperature
+        case maxTokens = "max_tokens"
     }
 }
