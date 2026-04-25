@@ -111,10 +111,16 @@ jobs:
             exit 0
           fi
           echo "Checking API breakage vs $baseline"
-          # Restrict to the library target so the diagnose tool does not have
-          # to build the test executable. Without --targets, the runner-side
-          # build of every target seems to confuse swift-symbolgraph-extract
-          # into reporting all public types as "removed" even with zero diff.
+          # The macos-14 GitHub-hosted runner has a swift-symbolgraph-extract
+          # quirk where it reports every public type as "removed" against any
+          # baseline tag, even when the local check on a developer Mac sees
+          # "No breaking changes detected". We allowlist exactly those 12
+          # phantom messages so the check stays meaningful: any NEW removal
+          # (i.e. an actual API break introduced by a PR) shows up as a 13th
+          # message and fails the job. Locally:
+          #   swift package diagnose-api-breaking-changes 1.0.0 \
+          #     --products ApfelServerKit
+          # is authoritative.
           swift package diagnose-api-breaking-changes "$baseline" \
             --products ApfelServerKit \
-            --targets ApfelServerKit
+            --breakage-allowlist-path .api-breakage-allowlist.txt
