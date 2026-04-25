@@ -42,6 +42,27 @@ public struct ChatRequest: Sendable, Equatable, Codable {
         self.maxTokens = maxTokens
     }
 
+    // Preserves the v1.0.0 initializer symbol — including its default
+    // arguments — so swift package diagnose-api-breaking-changes does not
+    // flag the addition of `maxTokens` as either a symbol removal or a
+    // default-argument removal. Swift overload resolution prefers this
+    // 4-arg form when no `maxTokens:` label is present, falling through
+    // to the 5-arg init only when the caller writes `maxTokens:`.
+    public init(
+        model: String = "apfel",
+        messages: [ChatMessage],
+        stream: Bool = true,
+        temperature: Double? = nil
+    ) {
+        self.init(
+            model: model,
+            messages: messages,
+            stream: stream,
+            temperature: temperature,
+            maxTokens: nil
+        )
+    }
+
     private enum CodingKeys: String, CodingKey {
         case model, messages, stream, temperature
         case maxTokens = "max_tokens"

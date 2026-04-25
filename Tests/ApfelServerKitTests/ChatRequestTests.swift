@@ -74,4 +74,21 @@ func runChatRequestTests() {
         let req = try JSONDecoder().decode(ChatRequest.self, from: json)
         try assertEqual(req.maxTokens, 128)
     }
+
+    test("ChatRequest preserves v1.0.0 init(model:messages:stream:temperature:) overload") {
+        // The overload exists explicitly so swift package diagnose-api-breaking-changes
+        // sees the v1.0.0 symbol unchanged. Fully-qualified call (no defaults) forces
+        // the 4-arg overload, not the 5-arg one.
+        let req = ChatRequest(
+            model: "apfel",
+            messages: [ChatMessage(role: "user", content: "hi")],
+            stream: false,
+            temperature: 0.5
+        )
+        try assertEqual(req.model, "apfel")
+        try assertEqual(req.messages.count, 1)
+        try assertFalse(req.stream)
+        try assertEqual(req.temperature, 0.5)
+        try assertNil(req.maxTokens)
+    }
 }
