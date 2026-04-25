@@ -74,11 +74,7 @@ jobs:
             --output-path "$RUNNER_TEMP/docs"
 
   api-breakage:
-    # macos-14 runner has a Swift toolchain bug where diagnose-api-breaking-changes
-    # reports every public type as removed even with zero real diff. macos-15 runs
-    # the same check correctly. If GitHub deprecates macos-15 before Apple fixes
-    # the macos-14 toolchain, switch to whichever current image works.
-    runs-on: macos-15
+    runs-on: macos-14
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -115,4 +111,10 @@ jobs:
             exit 0
           fi
           echo "Checking API breakage vs $baseline"
-          swift package diagnose-api-breaking-changes "$baseline" --products ApfelServerKit
+          # Restrict to the library target so the diagnose tool does not have
+          # to build the test executable. Without --targets, the runner-side
+          # build of every target seems to confuse swift-symbolgraph-extract
+          # into reporting all public types as "removed" even with zero diff.
+          swift package diagnose-api-breaking-changes "$baseline" \
+            --products ApfelServerKit \
+            --targets ApfelServerKit
