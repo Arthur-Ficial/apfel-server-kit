@@ -111,6 +111,126 @@ func runApfelServerLifecycleTests() {
         try assertNil(p)
     }
 
+    testAsync("start() is idempotent — second call returns cached port without re-probing") {
+        let (port, listener) = try await startLifecycleResponder()
+        let server = ApfelServer(
+            portRange: port...port,
+            binaryFinder: { "/nonexistent" }
+        )
+        let p1 = try await server.start()
+        // Tear down the responder so a fresh probe would necessarily fail.
+        listener.cancel()
+        try await Task.sleep(for: .milliseconds(150))
+        // Idempotent start() must short-circuit on cached _port and skip re-probing.
+        let p2 = try await server.start()
+        try assertEqual(p1, p2)
+        await server.stop()
+    }
+
+    testAsync("start() fails fast when the spawned binary exits immediately") {
+        // /bin/echo prints its arg list and exits in milliseconds. Without
+        // dead-process detection, start() would wait the full healthTimeout
+        // (8s) before giving up. We assert it fails in well under 1 second.
+        let (port, fd) = reserveLifecyclePort()
+        Darwin.close(fd)
+        let server = ApfelServer(
+            portRange: port...port,
+            healthTimeout: .seconds(8),
+            binaryFinder: { "/bin/echo" }
+        )
+        let start = Date()
+        do {
+            _ = try await server.start()
+            throw TestFailure("expected timeout")
+        } catch let e as ApfelServerError {
+            guard case .healthCheckTimeout = e else {
+                throw TestFailure("expected .healthCheckTimeout, got \(e)")
+            }
+        } catch {
+            throw TestFailure("wrong error: \(error)")
+        }
+        let elapsed = Date().timeIntervalSince(start)
+        try assertTrue(elapsed < 1.0, "should fail fast on dead process, took \(elapsed)s")
+        await server.stop()
+    }
+
+    testAsync("start() after stop() re-probes cleanly") {
+        let (port, listener) = try await startLifecycleResponder()
+        defer { listener.cancel() }
+        let server = ApfelServer(
+            portRange: port...port,
+            binaryFinder: { "/nonexistent" }
+        )
+        let p1 = try await server.start()
+        await server.stop()
+        // After stop(), cached _port is cleared; start() must probe again.
+        let p2 = try await server.start()
+        try assertEqual(p1, p2)
+        await server.stop()
+    }
+
+    testAsync("start()'s cleanup escalates SIGTERM to SIGKILL when the spawned process ignores SIGTERM") {
+        // Real-world failure: apfel wedges during model load and ignores SIGTERM.
+        // Without escalation, the subprocess keeps holding the port forever,
+        // poisoning subsequent attaches. We simulate with a perl script that
+        // binds the target port AND ignores SIGTERM. perl is preinstalled on
+        // every macOS, so this works on dev machines and macos-14 runners alike.
+        let (port, fd) = reserveLifecyclePort()
+        Darwin.close(fd)
+
+        // Perl source goes in its own file so shell variable interpolation
+        // does not eat $SIG, $s, $! before perl gets a chance to see them.
+        let perlPath = NSTemporaryDirectory() + "apfel-kit-hold-port-\(UUID().uuidString).pl"
+        let perlScript = """
+        $SIG{TERM} = 'IGNORE';
+        use IO::Socket::INET;
+        my $s = IO::Socket::INET->new(
+            LocalAddr => '127.0.0.1',
+            LocalPort => \(port),
+            Listen    => 1,
+            ReuseAddr => 1,
+        ) or die "bind failed: $!";
+        sleep 30;
+        """
+        try perlScript.write(toFile: perlPath, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(atPath: perlPath) }
+
+        // sh wrapper that ignores its own --serve/--port args and execs perl.
+        let scriptPath = NSTemporaryDirectory() + "apfel-kit-wrap-\(UUID().uuidString).sh"
+        let wrapper = "#!/bin/sh\nexec /usr/bin/perl '\(perlPath)'\n"
+        try wrapper.write(toFile: scriptPath, atomically: true, encoding: .utf8)
+        try assertEqual(chmod(scriptPath, 0o755), 0, "chmod failed")
+        defer { try? FileManager.default.removeItem(atPath: scriptPath) }
+
+        let server = ApfelServer(
+            portRange: port...port,
+            healthTimeout: .milliseconds(300), // fast — drives us into the catch path
+            arguments: [],
+            binaryFinder: { scriptPath }
+        )
+
+        do {
+            _ = try await server.start()
+            throw TestFailure("expected timeout")
+        } catch is ApfelServerError {
+            // expected — perl bound the port but never answered /health
+        }
+
+        // Without SIGKILL escalation, the perl process traps SIGTERM and keeps
+        // holding the port for the full sleep(30). With escalation, the port
+        // should be freed within ~500ms. We allow 2s headroom.
+        let deadline = Date().addingTimeInterval(2.0)
+        var freed = false
+        while Date() < deadline {
+            if PortScanner.isAvailable(port) {
+                freed = true
+                break
+            }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        try assertTrue(freed, "port \(port) should be freed within 2s after start() catch")
+    }
+
     testAsync("multiple ApfelServer instances with disjoint ranges coexist") {
         let (p1, l1) = try await startLifecycleResponder()
         let (p2, l2) = try await startLifecycleResponder()
